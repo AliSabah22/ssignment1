@@ -69,13 +69,26 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  Map<int, int> stats = {
+    for (int i = 1; i <= 9; i++) i: 0,
+  };
   int? lastNumber;
 
   void generateRandomNumber() {
     setState(() {
       lastNumber = Random().nextInt(9) + 1;
+      stats[lastNumber!] = stats[lastNumber!] ! + 1;
     });
   }
+
+  void resetStats() {
+  setState(() {
+    for (int i = 1; i <= 9; i++) {
+      stats[i] = 0;
+    }
+    lastNumber = null;
+  });
+}
 
   @override
   Widget build(BuildContext context) {
@@ -105,12 +118,15 @@ class _MyHomePageState extends State<MyHomePage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const StatisticsPage(),
-                    )
-                  );
+                    builder: (_) => StatisticsPage(
+                      stats: stats,
+                      onReset: resetStats,
+                    ),
+                  ),
+                );
               },
               child: const Text("View Statistics"),
-            )
+            ),
           ],
         ),
       ),
@@ -120,28 +136,28 @@ class _MyHomePageState extends State<MyHomePage> {
 
 //Statistics page
 class StatisticsPage extends StatefulWidget {
-  const StatisticsPage({super.key,});
+  final Map<int, int> stats;
+  final VoidCallback onReset;
 
+
+  const StatisticsPage({super.key, required this.stats, required this.onReset});
 
   @override
   State<StatisticsPage> createState() => _StatisticsPage();
 }
 
 class _StatisticsPage extends State<StatisticsPage> {
-  int _counter = 0;
+  late Map<int, int> localStates;
 
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
+  @override
+  void initState() {
+    super.initState();
+    localStates = widget.stats;
   }
 
 
- 
-
-
-  @override
   Widget build(BuildContext context) {
+
 
     return Scaffold(
       appBar: AppBar(
@@ -154,8 +170,52 @@ class _StatisticsPage extends State<StatisticsPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         
       
-      body: const Center(
-        child: Text("Statistics Screen")),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+
+              padding: const EdgeInsets.symmetric(
+                vertical: 8,
+                horizontal: 20,
+              ),
+              children: localStates.entries.map((entry) {
+               return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                    child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Number ${entry.key}",
+                      ),
+                      Text(
+                        entry.value.toString(),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              
+            ),
+          ),
+        ElevatedButton (
+              onPressed: () {
+                widget.onReset;
+                setState(() {
+                  for (int i = 1; i <= 9; i++) {
+                    localStates[i] = 0;
+                  }
+                });
+              },
+              child: const Text("Reset")
+            ),
+          
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Back to Home"),
+        )
+        ],
+      )
     );
   }
 }
