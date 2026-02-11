@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+
 void main() {
   runApp(const MyApp());
 }
@@ -51,7 +52,6 @@ class MyApp extends StatelessWidget {
         
         
        
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
         
       ),
       home: const MyHomePage(title: 'Random Number Generator'),
@@ -68,17 +68,42 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
   Map<int, int> stats = {
     for (int i = 1; i <= 9; i++) i: 0,
   };
   int? lastNumber;
+  Timer? _timer;
+  int tempNumber = 0;
 
   void generateRandomNumber() {
-    setState(() {
-      lastNumber = Random().nextInt(9) + 1;
-      stats[lastNumber!] = stats[lastNumber!] ! + 1;
+    _controller.forward(from: 0);
+
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      setState(() {
+        tempNumber = Random().nextInt(9) + 1;
+      });
     });
+
+    _controller.addStatusListener((status) {
+      if(status == AnimationStatus.completed) {
+        _timer?.cancel();
+
+
+        setState(() {
+          lastNumber = tempNumber;
+          stats[lastNumber!] = stats[lastNumber!]! + 1;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _timer?.cancel();
+    super.dispose();
   }
 
   void resetStats() {
@@ -88,6 +113,48 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     lastNumber = null;
   });
+
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3), //Duration of the animation
+    );
+
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _timer?.cancel();
+        setState(() {
+          
+        });
+      }
+    });
+  }
+
+  void _startAnimation() {
+    _controller.reset();
+    _controller.forward();
+
+
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      setState(() {
+        lastNumber = Random().nextInt(9) + 1;
+      });
+    });
+
+    Future.delayed(const Duration(seconds: 3), () {
+      _timer?.cancel();
+      stats[lastNumber!] = stats[lastNumber!]! + 1;
+      setState(() {
+        
+      });
+    });
+  }
+
 }
 
   @override
@@ -98,38 +165,54 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
         backgroundColor: Color(0xFF147CD3),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              lastNumber?.toString() ?? "",
-            ),
-            const SizedBox(height: 30,),
-            ElevatedButton(
+      body: Column(
+  children: [
+    Expanded(
+      child: Center(
+        child: Text(
+          _controller.isAnimating ? tempNumber.toString(): lastNumber?.toString() ?? "",
+          style: const TextStyle(fontSize: 40),
+        ),
+      ),
+    ),
+
+    Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
               onPressed: generateRandomNumber,
               child: const Text("Generate"),
             ),
+          ),
 
-            SizedBox(height: 20),
+          const SizedBox(height: 15),
 
-            ElevatedButton(
+          SizedBox(
+            width: double.infinity,
+              child: ElevatedButton(
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => StatisticsPage(
-                      stats: stats,
-                      onReset: resetStats,
-                    ),
-                  ),
-                );
-              },
-              child: const Text("View Statistics"),
-            ),
-          ],
+              Navigator.push(
+                context,
+              MaterialPageRoute(
+                builder: (_) => StatisticsPage(
+                    stats: stats,
+                    onReset: resetStats,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text("View Statistics"),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
+    ),
+
     );
   }
 }
@@ -152,7 +235,8 @@ class _StatisticsPage extends State<StatisticsPage> {
   @override
   void initState() {
     super.initState();
-    localStates = widget.stats;
+    localStates = Map.from(widget.stats);
+    
   }
 
 
@@ -167,55 +251,72 @@ class _StatisticsPage extends State<StatisticsPage> {
           ),
           title: const Text("Statistics"),
         ),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         
       
       body: Column(
         children: [
           Expanded(
             child: ListView(
-
-              padding: const EdgeInsets.symmetric(
-                vertical: 8,
-                horizontal: 20,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
               children: localStates.entries.map((entry) {
-               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                    child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Number ${entry.key}",
-                      ),
-                      Text(
-                        entry.value.toString(),
-                      ),
-                    ],
+            return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Number ${entry.key}",
+                  style: const TextStyle(fontSize: 18),
+                ),
+                Text(
+                  entry.value.toString(),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
-                );
-              }).toList(),
-              
+                ),
+              ],
             ),
-          ),
-        ElevatedButton (
+          );
+        }).toList(),
+      ),
+    ),
+
+    Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
               onPressed: () {
-                widget.onReset;
+                widget.onReset();
+
                 setState(() {
                   for (int i = 1; i <= 9; i++) {
                     localStates[i] = 0;
                   }
                 });
               },
-              child: const Text("Reset")
+              child: const Text("Reset"),
             ),
-          
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Back to Home"),
-        )
+          ),
+
+          const SizedBox(height: 15),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Back to Home"),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
-      )
+      ),
+
     );
   }
 }
